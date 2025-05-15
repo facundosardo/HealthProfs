@@ -1,47 +1,46 @@
-# HealthProfs Scraper
+# 📝 HealthProfs Scraper  
 
-This script extracts professional contact information from HealthProfs, specifically for professionals located in a set list of Connecticut cities. It collects names, cities, and website links for acupuncturists, chiropractors, and massage therapists, and stores this data in two separate CSV files:
+This script extracts professional contact information from **HealthProfs**, specifically targeting acupuncturists, chiropractors, and massage therapists in a predefined list of Connecticut cities. It saves the data in two CSV files:  
 
-- healthprofs.csv: The master database, containing all collected professionals without duplicates.
+---
 
-- healthprofs_newprof.csv: A file that only includes newly discovered professionals in each run.
+## 📁 **Generated Files**  
+- **healthprofs.csv:** Master database containing all collected professionals without duplicates.  
+- **healthprofs_newprof.csv:** Contains only the newly discovered professionals in each run (empty if no new professionals are found).  
 
-Features
+---
 
-* Extracts professional names, cities, and website URLs.
+## ⚙️ **Requirements**  
+- **Python 3.8+**  
+- **Google Chrome**  
+- **Selenium:**  
+    ```bash
+    pip install selenium webdriver-manager
+    ```  
 
-* Avoids duplicate entries across multiple script executions.
+---
 
-* Limits data collection to specific Connecticut cities.
+## 🚀 **How to Use**  
+1. **Clone the repository or download the script.**  
+2. **Install dependencies:**  
+    ```bash
+    pip install selenium webdriver-manager
+    ```  
+3. **Run the script:**  
+    ```bash
+    python healthprofs.py
+    ```  
 
-* Differentiates between previously collected and new professionals.
+---
 
-* Easy to extend and maintain.
+## 🌐 **Script Details**  
+- Extracts names, cities, and websites of professionals.  
+- Filters professionals by a specific list of Connecticut cities.  
+- Avoids duplicate entries by comparing with the master file (`healthprofs.csv`).  
+- If no new professionals are found, the `healthprofs_newprof.csv` file remains empty.  
 
-Prerequisites
+---
 
-Make sure you have the following Python packages installed:
+## 🤖 **Customization**  
+To change the list of target cities, edit the `TARGET_CITIES` list in the script.  
 
-(pip install selenium webdriver-manager)
-
-Usage
-
-Simply run the script:
-
-(python healthprofs.py)
-
-Make sure to place the script in the same directory as your CSV files or specify their paths accordingly. The script will automatically manage the creation of both CSV files if they don't already exist.
-
-Customization
-
-If you want to change the list of target cities, simply update the cities_of_interest list in the script to reflect your preferred locations.
-
-Notes
-
-- The script opens multiple browser tabs for each professional profile, so make sure to have a stable internet connection.
-
-- Only professionals with websites are recorded in the CSV files.
-
-License
-
-Feel free to use and modify this script as needed.
