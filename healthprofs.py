@@ -1,69 +1,74 @@
 import os
+import time
+import csv
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
-import time
-import csv
 
-# List of cities of interest
-cities_of_interest = [
+# List of target cities to filter professionals
+TARGET_CITIES = [
     "Bethel", "Bridgeport", "Brookfield", "Danbury", "Darien", "Easton",
     "Fairfield", "Greenwich", "Monroe", "New Canaan", "Newtown", "Norwalk",
     "Redding", "Ridgefield", "Shelton", "Sherman", "Stamford", "Stratford",
     "Trumbull", "Weston", "Westport", "Wilton", "New Fairfield"
 ]
 
-# Browser configuration
-options = webdriver.ChromeOptions()
-options.add_argument("--start-maximized")
-driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+MASTER_FILE = 'healthprofs.csv'
+NEW_PROS_FILE = 'healthprofs_newprof.csv'
 
-# CSV files
-master_file = 'healthprofs.csv'
-new_pros_file = 'healthprofs_newprof.csv'
-
-# Create CSV files if they don't exist and load existing professionals
+# Load existing professionals from master CSV to avoid duplicates
 existing_professionals = set()
-if os.path.exists(master_file):
-    with open(master_file, mode='r', newline='', encoding='utf-8') as file:
+if os.path.exists(MASTER_FILE):
+    with open(MASTER_FILE, mode='r', newline='', encoding='utf-8') as file:
         reader = csv.reader(file)
-        next(reader)  # Skip header
+        next(reader)  # Skip header row
         for row in reader:
             existing_professionals.add(f"{row[0]},{row[1]}")
 else:
-    with open(master_file, mode='w', newline='', encoding='utf-8') as file:
+    # Initialize master CSV with headers if not present
+    with open(MASTER_FILE, mode='w', newline='', encoding='utf-8') as file:
         writer = csv.writer(file)
         writer.writerow(["Name", "City", "Website Link"])
 
-# Create file for new professionals
-with open(new_pros_file, mode='w', newline='', encoding='utf-8') as file:
+# Initialize new professionals CSV with headers
+with open(NEW_PROS_FILE, mode='w', newline='', encoding='utf-8') as file:
     writer = csv.writer(file)
     writer.writerow(["Name", "City", "Website Link"])
 
-# Function to navigate to specific category
-categories = [
-    ("Find an Acupuncturist", "Acupuncturists in Connecticut"),
-    ("Find a Chiropractor", "Chiropractors in Connecticut"),
-    ("Find a Massage Therapist", "Massage Therapists in Connecticut")
-]
+def extract_professionals(profession_name, location_name):
+    """
+    Extract professionals data for a given profession and location.
 
-def extract_professionals(main_title, state_title):
+    Args:
+        profession_name (str): Profession name to click on the page (e.g. "Acupuncturists")
+        location_name (str): Location link text to filter (e.g. "Connecticut")
+    """
+    options = webdriver.ChromeOptions()
+    options.add_argument("--start-maximized")
+    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+    wait = WebDriverWait(driver, 15)
+
     try:
-        # Navigate to main category
+        # Open the main members page
         driver.get("https://www.healthprofs.com/us/members")
-        WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, f'//a[@title="{main_title}"]'))).click()
+
+        # Click on the profession link (by visible text)
+        wait.until(EC.element_to_be_clickable((By.XPATH, f"//a[contains(text(), '{profession_name}')]"))).click()
         time.sleep(2)
-        WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, f'//a[@title="{state_title}"]'))).click()
+
+        # Click on the location link (by visible text)
+        wait.until(EC.element_to_be_clickable((By.XPATH, f"//a[contains(text(), '{location_name}')]"))).click()
         time.sleep(2)
 
         while True:
+            # Find all professional result rows on the page
             professionals = driver.find_elements(By.XPATH, '//div[contains(@class, "results-row")]')
             for professional in professionals:
                 try:
-                    # Extract full name
+                    # Extract full name: try splitting into first and last name, fallback to entire name
                     try:
                         first_name = professional.find_element(By.XPATH, ".//span[@class='multi-word']").text.strip()
                         last_name = professional.find_element(By.XPATH, ".//span[@class='last-word']").text.strip()
@@ -71,32 +76,34 @@ def extract_professionals(main_title, state_title):
                     except:
                         name = professional.find_element(By.XPATH, ".//div[contains(@class, 'results-row-heading-container')]//a").text.strip()
 
-                    # Extract city
+                    # Extract city from address
                     try:
                         city_element = professional.find_element(By.XPATH, './/span[@class="address"]/a')
-                        city = city_element.text.strip().split(",")[0]  # Only clean city name
+                        city = city_element.text.strip().split(",")[0]
                     except:
-                        continue  # Skip if no city is found
+                        continue  # Skip if city is not found
 
-                    # Check if city is of interest and not already registered
                     unique_key = f"{name},{city}"
-                    if city not in cities_of_interest or unique_key in existing_professionals:
+
+                    # Filter out professionals not in target cities or already extracted
+                    if city not in TARGET_CITIES or unique_key in existing_professionals:
                         continue
 
-                    # Find website link
+                    # Extract profile URL and open in new tab
                     profile_url = professional.find_element(By.XPATH, './/a').get_attribute("href")
                     driver.execute_script("window.open(arguments[0]);", profile_url)
                     driver.switch_to.window(driver.window_handles[1])
-                    WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.TAG_NAME, "body")))
+                    wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
 
-                    website_url = None
+                    # Try to find personal website link
+                    website_url = ""
                     possible_xpaths = [
                         '//a[@data-x="website-link"]',
-                        '//a[contains(text(), "Website")]','//a[contains(text(), "My website")]',
+                        '//a[contains(text(), "Website")]',
+                        '//a[contains(text(), "My website")]',
                         '//a[contains(text(), "My Website")]',
                         '//a[contains(@href, "website-redirect")]',
                     ]
-
                     for xpath in possible_xpaths:
                         try:
                             link = driver.find_element(By.XPATH, xpath)
@@ -106,27 +113,28 @@ def extract_professionals(main_title, state_title):
                         except:
                             continue
 
-                    # Save to both files
-                    if website_url:
-                        with open(master_file, mode='a', newline='', encoding='utf-8') as file:
-                            writer = csv.writer(file)
-                            writer.writerow([name, city, website_url])
-                        existing_professionals.add(unique_key)
-
-                        with open(new_pros_file, mode='a', newline='', encoding='utf-8') as file:
-                            writer = csv.writer(file)
-                            writer.writerow([name, city, website_url])
-
-                        print(f"{name} | {city} | Link saved: {website_url}")
-
+                    # Close the profile tab and switch back to main results
                     driver.close()
                     driver.switch_to.window(driver.window_handles[0])
-                    time.sleep(1)
+
+                    # Save professional to CSV files
+                    with open(MASTER_FILE, mode='a', newline='', encoding='utf-8') as f_master:
+                        writer_master = csv.writer(f_master)
+                        writer_master.writerow([name, city, website_url])
+                    existing_professionals.add(unique_key)
+
+                    with open(NEW_PROS_FILE, mode='a', newline='', encoding='utf-8') as f_new:
+                        writer_new = csv.writer(f_new)
+                        writer_new.writerow([name, city, website_url])
+
+                    print(f"Saved: {name} | {city} | Website: {website_url if website_url else '(no website)'}")
+                    time.sleep(1)  # Be polite, avoid hammering server
 
                 except Exception as e:
                     print(f"Error processing professional {name if 'name' in locals() else 'unknown'}: {e}")
                     continue
 
+            # Pagination - navigate to next page if exists
             try:
                 next_button = driver.find_element(By.XPATH, '//div[@class="pagination-controls-end"]/a')
                 next_page_url = next_button.get_attribute("href")
@@ -139,11 +147,18 @@ def extract_professionals(main_title, state_title):
             except:
                 print("No more pages to load.")
                 break
+
     except Exception as e:
-        print(f"Error extracting for {main_title}: {e}")
+        print(f"Error extracting for {profession_name}: {e}")
 
-for main_title, state_title in categories:
-    extract_professionals(main_title, state_title)
+    finally:
+        driver.quit()
 
-print("Extraction completed.")
-driver.quit()
+
+if __name__ == "__main__":
+    # Extract each profession sequentially
+    extract_professionals("Acupuncturists", "Connecticut")
+    extract_professionals("Chiropractors", "Connecticut")
+    extract_professionals("Massage Therapists", "Connecticut")
+
+    print("Extraction completed.")
