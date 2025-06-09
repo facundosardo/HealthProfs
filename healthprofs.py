@@ -160,9 +160,10 @@ def extract_professionals(profession_name, location_name):
 
 
 if __name__ == "__main__":
-    # Extract each profession sequentially
+    # Extract each profession sequentially, adding "Naturopaths"
     extract_professionals("Acupuncturists", "Connecticut")
     extract_professionals("Chiropractors", "Connecticut")
     extract_professionals("Massage Therapists", "Connecticut")
+    extract_professionals("Naturopaths", "Connecticut")
 
     print("Extraction completed.")
